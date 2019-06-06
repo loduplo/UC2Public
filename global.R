@@ -49,7 +49,7 @@ transVilles <- transactions2018 %>% group_by(Borne,Ville) %>% summarise(Consomma
 transVilles <- rename(transVilles,CodePDC=Borne)
 transVilles$CodePDC<- as.character(transVilles$CodePDC)
 
-#ajout du champ Ville => 12 NA's
+#ajout du champ Ville 
 df <- left_join(df,transVilles,by="CodePDC")
 #suppression des NA
 df$nbTransaction <- ifelse(is.na(df$nbTransaction),0,df$nbTransaction)
@@ -70,9 +70,9 @@ listVilles <- levels(df$Ville)
 nbVilles <- length(listVilles)
 
 ######################################################################################################
-#CONSOLIDATION JOUR 
-#PAR TYPE DE JOUR
-#regroupement des data par jour en kWh
+# CONSOLIDATION JOUR 
+# PAR TYPE DE JOUR
+# regroupement des data par jour en kWh
 transactionsPerJour <- transactions %>% group_by(DateDebut,Borne) %>% summarise(Consommationkwh=sum(Consommationkwh),
                                                                           DureeChargemin=sum(DureeChargemin),
                                                                           nbTransaction=n())
