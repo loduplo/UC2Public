@@ -3,46 +3,31 @@ library("dplyr")
 library("zoo")
 library("stringr")
 ####################################################################################################
-# DONNEES CARTOGRAPHIQUES
+# DONNEES CARTOGRAPHIQUES : BORNES
 ####################################################################################################
-# 10 VARIABLES FACTOR 
-# Station;Commune;Adresse;Identifiant;Type;Connecteur;StationCode;ChargeBoxIdentity;CodePDC;PDL_IDC;
-# 4 INT Numero;CodeInsee;lat;lon
-#
-#df <- read.csv2("F:/SHINY-PRODUCTION/UC2-IRVE/bornes.csv",encoding = "UTF-8")
-#df <- read.csv2("bornes.csv",encoding = "UTF-8")
-# 3/01/19 Bornes avec ruralite
+# Bornes avec donnees de ruralite
+# 15 VARIABLES : 
+# Station;Commune;Adresse;Identifiant;Type;Numero;CodeInsee;Connecteur;StationCode;ChargeBoxIdentity;CodePDC;PDL_IDC;lat;lon;Ruralite
+# TOURTON;CHABOTTES;Parking Haute Plaine SO 05260 CHABOTTES (05);FR*XXX*XXXXX*A*B1*D;ACCELEREE;16322;5029;Droit;FR*XXX*XXXXX*A;FR*XXX*XXXXX*A-1;FR*XXX*XXXXX*A*B1;PDLXXXXXXXXXXX;44,6428413391113;6,16910123825073;400 - Com. isol�es hors influence des p�les
 df <- read.csv2("bornesWithRuralite.csv",encoding = "UTF-8")
-# comRurales <- df %>% group_by(Commune) %>% 
-#                   summarise(Ruralite=unique(Ruralite),nbStation=n_distinct(Station),nbpdc=n_distinct(CodePDC))
-# table(comRurales$Ruralite)
-# nbPDCRurales <- df %>% group_by(Ruralite) %>% 
-#   summarise(nbCommune=n_distinct(Commune),nbStation=n_distinct(Station),nbpdc=n_distinct(CodePDC))
 
 #liste des stations
 listStations <- levels(df$Station)
 nbstations <- length(listStations)
-#liste des PDC
+#liste des Points De Charge - PDC
 listPDC <- levels(df$CodePDC)
 nbPDC <- length(listPDC)
 ####################################################################################################
-# DONNEES HISTORIQUES
+# DONNEES HISTORIQUES : TRANSACTIONS
 ####################################################################################################
-# Borne;Type;Ville;DateDebut;HeureDebut;
-# DureeChargemin;Consommationkwh;DateFin;HeureFin;TypeClient;Status;DateTimeDebut;DateTimeFin
+# Borne;Type;Ville;DateDebut;HeureDebut;DureeChargemin;Consommationkwh;DateFin;HeureFin;TypeClient;Status;DateTimeDebut;DateTimeFin
+# FR*XXX*XXXXX*A*B1;Rapide;ANCELLE (05);23/03/2017; 12:28;0;0;23/03/2017; 12:28;Individuel;CHARGE;2017-03-23 12:28:00;2017-03-23 12:30:00
 # Borne = CodePDC
-transdf <- read.csv2("trans.csv",encoding = "UTF-8")
 transactions <- read.csv2("trans.csv",encoding = "UTF-8")
 
 ######################################################################################################
 # bornes qui n existent pas => A SUPPRIMER
-# listBorne <- c("FR*S05*S05006*A*B2","FR*S05*S05046*E*B1","FR*S05*S05114*A*B1","FR*S05*S05046*E*B1","FR*S05*S05114*A*B1","FR*S05*S05177*A*B1")
-# test <- filter(transactions, Borne %in% listBorne)
-# conso a 0 => 1440 observations
-#consonulle <- filter(transactions, Consommationkwh <= 0)
-# chargemin a 0 => 751 observation
-#chargenulle <- filter(transactions, DureeChargemin <= 0)
-#transactions => 1790 observations sur 3294
+# Consommation nulle ou Duree de charge nulle => transactions supprimees
 transactions <- filter(transactions, (Consommationkwh > 0)&(DureeChargemin > 0))
 transactions$Borne <- droplevels(transactions$Borne)
 transactions$DateDebut <- lubridate::dmy(transactions$DateDebut)
@@ -79,21 +64,11 @@ df$meanConso <- mean(df$Consommationkwh)
 df$EcartTrans <- round(df$nbTransaction - mean(df$nbTransaction),0)
 df$EcartDuree <- round(df$DureeChargemin - mean(df$DureeChargemin),0)
 df$EcartConso <- round(df$Consommationkwh - mean(df$Consommationkwh),0)
-# 
-# df$EcartT <- cut(df$EcartTrans,c(-19.281,-14.281,-9.281,3.719,86.719))
-# table(df$EcartT)
-# levels(df$EcartT) <- c("4eme Quartile","3eme quartile","2eme quartile","1er quartile")
-# df$EcartC <- cut(df$EcartConso,c(-276.15,-234.89,-122.88,43.38,1700.99))
-# levels(df$EcartC) <- c("4eme Quartile","3eme quartile","2eme quartile","1er quartile")
-# df$EcartD <- cut(df$EcartDuree,c(-3670.7,-3259.2,-2639.7,6808.2,37316.3))
-# levels(df$EcartD) <- c("4eme Quartile","3eme quartile","2eme quartile","1er quartile")
-# summary(df)
 
 #liste des Villes
 listVilles <- levels(df$Ville)
 nbVilles <- length(listVilles)
 
-#test <- filter(transactions, Borne %in% listBorne)
 ######################################################################################################
 #CONSOLIDATION JOUR 
 #PAR TYPE DE JOUR
@@ -175,19 +150,6 @@ transactionsPerMoisPerVille2018 <- transactions2018 %>% group_by(MonthDebut,Vill
   nbTransaction=n())
 
 #regroupement par mois et par borne
-# transactionsPerMoisPerBorneVille2018 <- transactions2018 %>% group_by(MonthDebut,Borne) %>% 
-#   summarise(meanConso=mean(Consommationkwh),
-#   Commune=unique(Ville),
-#   MoisFactorDebut=unique(MoisFactorDebut),
-#   Consommationkwh=sum(Consommationkwh),
-#   DureeChargemin=sum(DureeChargemin),
-#   nbTransaction=n())
-# #regroupement des data par mois en kWh 
-# transactionsPerMois <- transactions %>% group_by(MonthDebut) %>% summarise(MoisFactorDebut=unique(MoisFactorDebut),
-#                                                                            Consommationkwh=sum(Consommationkwh),
-#                                                                            DureeChargemin=sum(DureeChargemin),
-#                                                                            nbTransaction=n())
-#regroupement par mois et par borne
 transactionsPerMoisPerBorne2018 <- transactions2018 %>% group_by(MonthDebut,Borne) %>% 
   summarise(Ville=unique(Ville),
             MoisFactorDebut=unique(MoisFactorDebut),
@@ -197,39 +159,14 @@ transactionsPerMoisPerBorne2018 <- transactions2018 %>% group_by(MonthDebut,Born
 #Ajout de la ville a la Borne => champ VilleBorne
 transactionsPerMoisPerBorne2018 <- mutate(transactionsPerMoisPerBorne2018,VilleBorne=paste(str_sub(Ville,1,-5),Borne))
 
-############################
-# CALCUL DE LA MOYENNE PAR BORNE PAR MOIS sur l'annee 2018 (mais il n'y a pas toutes les bornes)
+######################################################################################################
+# CALCUL DE LA MOYENNE PAR BORNE PAR MOIS sur l'annee 2018 (mais il n y a pas toutes les bornes)
 moyennePerMois2018 <- transactionsPerMoisPerBorne2018 %>% group_by(MonthDebut) %>% summarise(meanConso=mean(Consommationkwh),
                                                                                            meanCharge=mean(DureeChargemin),
                                                                                            meanTrans=mean(nbTransaction))
 
-summary(moyennePerMois2018)
-# on rÃ©cupere le mois d'octobre
-#ecartOctobre <- filter(transactionsPerMoisPerBorne2018,MoisFactorDebut=="octobre")
-#ecartOctobre <- select(ecartOctobre, c(Borne,Consommationkwh,nbTransaction,DureeChargemin))
-# ajoute aux bornes df
-
-# decoupe en 4 classes par quartile
-
-#ajout de l'ecart par rapport a la moyenne
-# transactionsPerMoisPerBorne2018$ecartConso <- round(transactionsPerMoisPerBorne2018$Consommationkwh-60.38,0)
-# transactionsPerMoisPerBorne2018$ecartTrans <- round(transactionsPerMoisPerBorne2018$nbTransaction-3.7,0)
-# transactionsPerMoisPerBorne2018$ecartDuree <- round(transactionsPerMoisPerBorne2018$DureeChargemin-887.1,0)
-# summary(transactionsPerMoisPerBorne2018)
-# ECART de consommation
-#transactionsPerMoisPerBorne2018$Ecart <- cut(transactionsPerMoisPerBorne2018$ecartConso,c(-60.378,-47.163,-26.713,16.320,675))
-#levels(transactionsPerMoisPerBorne2018$Ecart)
-#table(transactionsPerMoisPerBorne2018$Ecart)
-# decoupe en 4 classes par quartile
-#ecartOctobre <- rename(ecartOctobre,CodePDC=Borne)
-#ecartOctobre$CodePDC<- as.character(ecartOctobre$CodePDC)
-
-#Consommation totale deja ajoutee
-#ajouter en precisant octobre
-#df <- left_join(df,ecartOctobre,by="CodePDC")
-
 #################################################################################################
-# RAF consolidation heure et VISU HEURE
+# Consolidation heure et VISU HEURE
 transactionsPerHeure <- transactions %>% group_by(DateTimeDebut,Borne) %>% summarise(Consommationkwh=sum(Consommationkwh),
                                                                                DureeChargemin=sum(DureeChargemin),
                                                                                nbTransaction=n())
@@ -240,53 +177,3 @@ transactionsPerHeure$HHFactor <- as.factor(transactionsPerHeure$HH)
 transactionsPerHeure$an <- lubridate::year(transactionsPerHeure$DateTimeDebut)
 transactionsPerHeure2017 <- filter(transactionsPerHeure,an==2017)
 transactionsPerHeure2018 <- filter(transactionsPerHeure,an==2018)
-########################################################################################################################################################
-# METEO ET TRANSACTIONS
-# 11/01/2019
-########################################################################################################################################################
-# meteoTransactionPerMois, file="meteoTransMOIS.csv"
-# meteoTransactionPerJour, file="meteoTransJOUR.csv"
-meteoTransactionPerJour <- read.csv2("meteoTransJOUR.csv",encoding = "UTF-8")
-meteoTransactionPerJour$DateJour <- as.Date(meteoTransactionPerJour$DateJour)
-meteoTransactionPerMois <- read.csv2("meteoTransMOIS.csv",encoding = "UTF-8")
-meteoTransactionPerMois$Month <- as.Date(meteoTransactionPerMois$Month)
-meteoTransactionsMois <- select(meteoTransactionPerMois,c(temp,humidite,pointRosee,visu,pluie1,pluie3,Consommationkwh,DureeChargemin,nbTransaction))
-tsmeteoTransactionPerJour <- meteoTransactionPerJour[27:675,] #premieres transactions le 27 janvier
-#preferable s'il n'y a pas l'annee entiere 2018
-y <- ts(tsmeteoTransactionPerJour,frequency=365,start=c(2017,27),end=c(2018,310))
-########################################################################################################################################################
-# UC2 - reservations des bornes du 05
-########################################################################################################################################################
-# F:/Flexgrid/BORNES IRVE/UC2/
-resabornes05 <- read.csv2("resaNovembre.csv",header=FALSE,encoding = "UTF-8",row.names=NULL)
-# changement des noms de colonnes => deviennent les noms de ligne
-colnames(resabornes05)<- c(1:31)
-# transposition de la matrice
-resa05 <- as.data.frame(t(resabornes05))
-# noms des colonnes
-colnames(resa05) <- c("date","nbResa","Bornes")
-# suppression de la ligne qui correspond aux anciens noms de colonne (par defaut)
-resa05 <- resa05[-1,]
-################################################################################
-# format date
-resa05$date <- lubridate::as_date(resa05$date)
-resa05$nbResa <- as.numeric(resa05$nbResa)
-# basic plot 
-#calendarPlot(resa05, pollutant="nbResa",year = 2018, month=6:12)
-#calendarPlot(resa05, pollutant="nbResa",year = 2018, 
-#             month=6:12, cols=c("green","blue","orange","red"))
-resa05$week <- factor(strftime(resa05$date,format="%V"))
-resa05$month <- factor(strftime(resa05$date,format="%b"),levels = c("oct.","nov."))
-resa05$ddate <- factor(strftime(resa05$date,format="%d"))
-#il faut ordonner les facteur pour avoir lundi Ã  dimanche !
-#comme il s'agit d'un Y c'est de dimanche Ã  lundi
-resa05$day <- factor(strftime(resa05$date,format="%a"),levels = rev(c("lun.","mar.","mer.","jeu.","ven.","sam.","dim.")))
-# add date tracks
-resa05$comment <- "Libre"
-resa05$comment[resa05$date>=as.Date('2018-11-26') & resa05$date<=as.Date('2018-11-28')] <- "Reservee"
-resa05$comment[resa05$date>=as.Date('2018-11-01') & resa05$date<=as.Date('2018-11-01')] <- "Ferie"
-resa05$comment[resa05$date>=as.Date('2018-11-05') & resa05$date<=as.Date('2018-11-06')] <- "Indisponible"
-resa05$comment[resa05$date>=as.Date('2018-11-11') & resa05$date<=as.Date('2018-11-11')] <- "Ferie"
-resa05$comment[resa05$date>=as.Date('2018-11-07') & resa05$date<=as.Date('2018-11-10')] <- "Reservee"
-#resa05$comment[resa05$day=="sam." | resa05$day=="dim."] <- "Weekend"
-resa05$comment <- factor(resa05$comment,levels=c("Libre","RÃ©servÃ©e","Indisponible","FeriÃ©"))

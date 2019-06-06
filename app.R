@@ -15,6 +15,12 @@ library("psy")
 library("corrplot")
 library("latticeExtra")
 
+#################################################################################################
+# 
+# UI
+#
+#################################################################################################
+
 ui <- dashboardPage(
   dashboardHeader(title = "UC2: Bornes IRVE"),
   dashboardSidebar(
@@ -33,7 +39,7 @@ ui <- dashboardPage(
   dashboardBody(
     
     tabItems(
-      # First tab content
+      # First tab content : carto
       tabItem(tabName = "carto",
               fluidRow(
                 box(title="Carte interactive des bornes IRVE", width=12,status="primary",solidHeader=TRUE,
@@ -48,7 +54,7 @@ ui <- dashboardPage(
               )
       ),      
 
-      # Tab Content Historique 2018 : SPRINT 1 20/12/2018
+      # Tab Content Historique 2018 : histofacet
       tabItem(tabName = "histofacet",
               fluidRow(
                 column(4,selectInput(inputId = "varhist18",
@@ -68,7 +74,7 @@ ui <- dashboardPage(
                 )
               )
       ),
-      # Tab content Histogramme pour SPRINT1 30/11/2018
+      # Tab content Histogramme pour histo
       tabItem(tabName = "histo",
               fluidRow(
                 column(4,selectInput(inputId = "varhisto",
@@ -104,23 +110,16 @@ ui <- dashboardPage(
                     plotOutput("ggperheure")
                 )
             )
-      ),
-      # fiveth tab content
-      tabItem(tabName = "sample",
-              fluidRow(
-                box(plotOutput("plot1", height = 250)),
-                
-                box(
-                  title = "Controls",
-                  sliderInput("slider", "Number of observations:",3, 100, 50)
-                )
-              )
       )
     )
   )
 )
 
-
+#################################################################################################
+# 
+# SERVER
+#
+#################################################################################################
 
 server <- function(input, output) {
 
@@ -131,7 +130,7 @@ server <- function(input, output) {
   
   # les transactions
   trans <- reactive({
-    t <- transdf
+    t <- transactions
   })
   #les reservations
   output$resaggplot <- renderPlot ({
@@ -139,31 +138,9 @@ server <- function(input, output) {
     calendarPlot(resa05, pollutant="nbResa",year = 2018,
                  month=6:12, cols=c("green","blue","orange","red"))
   })
-  # output$resaggplot <- renderPlot ({
-  #   # calendar avec ggplot => tableau de dates
-  #   ggplot(resa05,aes(x=week,y=day))+
-  #     geom_tile(aes(fill=comment))+
-  #     geom_text(aes(label=ddate))+
-  #     #values=c("#8dd3c7","#ffffb3","#fb8072","#d3d3d3")
-  #     scale_fill_manual(values=c("green","orange","red","grey"))+
-  #     facet_grid(~month,scales="free",space="free")+
-  #     labs(x="Semaine",y="")+
-  #     theme_bw(base_size=10)+
-  #     theme(legend.title=element_blank(),
-  #         panel.grid=element_blank(),
-  #         panel.border=element_blank(),
-  #         axis.ticks=element_blank(),
-  #         strip.background=element_blank(),
-  #         legend.position="top",
-  #         legend.justification="right",
-  #         legend.direction="horizontal",
-  #         legend.key.size=unit(0.3,"cm"),
-  #         legend.spacing.x=unit(0.2,"cm"))
-  # })
-
 
   # CLIC sur la carte => PDC
-  #### 6/12 ESSAI : click sur la carte => rÃÂ©cupÃÂ©ration de la Borne PDC
+  # click sur la carte => recuperation de la Borne PDC
   pdc <- reactive({
     validate(
       need(!is.null(input$map_marker_click), "Please select a location from the map above")
@@ -177,13 +154,10 @@ server <- function(input, output) {
     trans <- select(filter(df, CodePDC==pdc()),c("Ville"))
     return (trans[1]$Ville)
   })
-  #### 6/12 ESSAI : click sur le bouton => rÃÂ©cupÃÂ©ration de la Borne PDC
+  #### 6/12 ESSAI : click sur le bouton => recuperation de la Borne PDC
   pdc1 <- eventReactive(input$button_click, {
     input$map_marker_click$id
   })
-  # resa <- eventReactive(input$resa_click, {
-  #   input$map_marker_click$id
-  # })
   #output$locationid1 <- renderText({paste("Location Selected using popup select button resa click:", resa())})
   output$locationid <- renderUI({
     h4(paste("Vous avez choisi le point de charge :", pdc(), "de la ville", ville()))
@@ -191,7 +165,8 @@ server <- function(input, output) {
 
   
   ############################################################################################################
-  ## VISU contextuelles de la cartographie
+  ## VISU contextuelles de la cartographie => carto
+  ############################################################################################################
   colorvar <- eventReactive(
     {
       input$variable
@@ -244,16 +219,7 @@ server <- function(input, output) {
     ggplot(datapdc, aes_string("HHFactor",input$variable,group="HHFactor")) + 
       geom_col(fill=colorvar()) + labs(title = title, x = "Heure", y=unitevar())
   })
-  # Visu d'historique a partir de clic sur la carte
-  # output$histojour <- renderPlot ({
-  #   #PLOT jour
-  #   datapdc <- filter(transactionsPerJour,Borne==pdc())
-  #   
-  #   #paste("La PDC choisie est :", pdc(), "de la station",borne$Station)
-  #   title = paste(pdc()," : ",pdc()," : consolidation jour","2017/2018","")
-  #   xlabtext = paste("jours annee(s)", "2017/2018","")
-  #   plot(datapdc[["DateDebut"]],datapdc[["Consommationkwh"]], type ="h", ylab="kwh", xlab=xlabtext, main=title,col="blue")
-  # })
+
   #PLOT mois
   output$histomois <- renderPlot({
     #PLOT mois
@@ -314,18 +280,19 @@ server <- function(input, output) {
       labs(title = title, x = "Mois", y="minutes")
   })
   ############################################################################################################
-    # Ajout de couleur au cercle :
-    #   rouge pour RAPIDE
-    #   bleu pour ACCELERE
-    #pal = leaflet::colorFactor(palette=c("blue","red"), domain=df$Type)
-    # Ajout de couleur sur la borne en fonction de l'ÃÂ©cart ÃÂ  la moyenne : mois d'octobre
-    # par quantile : 1er quantile vert, 2eme bleu, 3eme turquoise, 4eme jaune
-    #pal = leaflet::colorFactor(palette=c("yellow","turquoise","blue","green"),domain=df$Ecart)
- output$map <- renderLeaflet({
+  ## Ajout de couleur au cercle :
+  ##   rouge pour RAPIDE
+  ##   bleu pour ACCELERE
+  ##
+  ## Ajout de couleur sur la borne en fonction de l'ecart a la moyenne : mois d'octobre
+  ## par quantile : 1er quantile vert, 2eme bleu, 3eme turquoise, 4eme jaune
+  ##
+  ############################################################################################################
+  output$map <- renderLeaflet({
       df <- data()
       
       # Ajout de couleur au cercle :
-      #   orange pour RAPIDE
+      #   rouge pour RAPIDE
       #   bleu pour ACCELERE
       pal = leaflet::colorFactor(palette=c("blue","red"), domain=df$Type)
       
@@ -341,7 +308,6 @@ server <- function(input, output) {
                          # Station;Commune;Adresse;Identifiant;Type;StationCode;Connecteur;ChargeBoxIdentity;CodePDC;PDL_IDC;
                          # INT Numero;CodeInsee
                          popup = ~paste("<b>","Commune :","</b>",as.character(df$Commune),"</br>",
-#                                        "<b>","Ruralite :","</b>",as.character(df$Ruralite),"</br>",
                                         "<b>","Nom de la Station :","</b>",as.character(df$Station),"</br>",
                                         "<b>","Code PDC :","</b>",as.character(df$CodePDC),"</br>",
                                         "<b>","ID station :","</b>",as.character(df$Identifiant),"</br>","</br>",
@@ -371,27 +337,18 @@ server <- function(input, output) {
       val=~Type
       cercle=10
     }
-    # else if (input$legend=="Ruralite")
-    # {
-    #   pal = leaflet::colorFactor(palette=c("orange","purple","blue","green","light green","dark grey"), domain=df$Ruralite)
-    #   proxy %>% addLegend(position = "topleft",
-    #                       pal = pal, values = ~Ruralite,title = "Ruralite",opacity=2)
-    #   colorpal=~pal(Ruralite)
-    #   val=~Ruralite
-    #   cercle=as.numeric(df$Type)*10
-    # }
     else if (input$legend=="Consommationkwh")
     {
       if(input$quantile == TRUE)
       {
         pal <- leaflet::colorQuantile(
-          palette = "Blues", #Blues, Greens, Reds, Oranges, RdYlBu
+          palette = "Blues", 
           na.color = "#808080",
           domain = df$EcartConso)
       }
       else {
         pal <- leaflet::colorNumeric(
-          palette = "Blues", #Blues, Greens, Reds, Oranges, RdYlBu
+          palette = "Blues", 
           na.color = "#808080",
           domain = df$EcartConso)
       }
@@ -426,7 +383,7 @@ server <- function(input, output) {
       if(input$quantile == TRUE)
       {
         pal <- leaflet::colorQuantile(
-          palette = "RdYlBu", #Blues, Greens, Reds, Oranges, RdYlBu
+          palette = "RdYlBu", 
           na.color = "#808080",
           domain = df$EcartDuree)
       }
@@ -450,8 +407,7 @@ server <- function(input, output) {
                        color = colorpal, #Type
                        label = paste(df$Commune,":",df$Station), #Station
                        popup = ~paste("<b>","Commune :","</b>",as.character(df$Commune),"</br>",
-#                                      "<b>","Ruralite :","</b>",as.character(df$Ruralite),"</br>",
-                                      "<b>","Nom de la Station :","</b>",as.character(df$Station),"</br>",
+                                     "<b>","Nom de la Station :","</b>",as.character(df$Station),"</br>",
                                       "<b>","Code PDC :","</b>",as.character(df$CodePDC),"</br>",
                                       "<b>","ID station :","</b>",as.character(df$Identifiant),"</br>","</br>",
                                       "<b>","Code Station :","</b>",as.character(df$StationCode),"</br>",
@@ -510,104 +466,9 @@ server <- function(input, output) {
         bringToFront = TRUE)
       )
   })
-  ## Observe mouse clicks and add circles
-  # observeEvent(input$map_click, {
-  #   ## Get the click info like had been doing
-  #   click <- input$map_click
-  #   clat <- click$lat
-  #   clng <- click$lng
-  #   address <- reverse_geocode_coords(c(clng,clat))
-  #   ## Add the circle to the map proxy
-  #   ## so you dont need to re-render the whole thing
-  #   ## I also give the circles a group, "circles", so you can
-  #   ## then do something like hide all the circles with hideGroup('circles')
-  #   leafletProxy('map') %>% # use the proxy to save computation
-  #     addCircles(lng=clng, lat=clat, group='circles',
-  #                weight=1, radius=100, color='black', fillColor='orange',
-  #                popup=address, fillOpacity=0.5, opacity=1)
-  # })
-  
-  output$mytable = DT::renderDataTable({
-    input$show_vars
-    DT::datatable(data()[, input$show_vars, drop = FALSE], 
-                  options = list(orderClasses = TRUE,lengthMenu = c(5,10,15,20,25), pageLength = 20))
-  })
-  output$mytrans = DT::renderDataTable({
-    input$trans_vars
-    DT::datatable(trans()[, input$trans_vars, drop = FALSE], 
-                  options = list(orderClasses = TRUE,lengthMenu = c(5,10,15,20,25), pageLength = 20))
-  })
-  
-  set.seed(122)
-  histdata <- rnorm(500)
-  
-  output$plot1 <- renderPlot({
-    data <- histdata[seq_len(input$slider)]
-    hist(data)
-  })
-  #######################################
-  ### DASHBOARD tabname=METEO      #
-  #######################################
-  #temperature et transactions : Embrun 2018 par jour
-  output$temptransjour <- renderPlot({
-    visu <- ggplot(meteoTransactionPerJour,aes(DateJour)) +
-      geom_ribbon(aes(ymin=tempMin,ymax=tempMax),fill="lightblue",show.legend =TRUE) +
-      geom_line(aes(y=temp,colour="Temperature Moyenne"))+
-      geom_line(aes(y=nbTransaction,colour="Nombre Transactions"))+
-      scale_colour_manual("", 
-                          breaks = c("Temperature Moyenne", "Nombre Transactions", "TempMin"),
-                          values = c("red", "blue","lightblue")) +
-      xlab(" ") +
-      scale_y_continuous("Temperature °C", limits = c(-10,35)) + 
-      scale_x_date(date_breaks="2 month",date_labels = "%b %Y",limits= c(Sys.Date()-365,Sys.Date()-100))+
-      theme(axis.text=element_text(size=14),
-            axis.title=element_text(size=14,face="bold"),
-            legend.text=element_text(size=12),
-            legend.justification=c(1,1),legend.position="top"
-      )
-    return(visu)
-  })
-  #temperature et transactions : Embrun 2017-2018 par mois
-  output$temptransmois <- renderPlot({
-  ## construct separate plots for each series
-  obj1 <- xyplot(temp ~ Month,meteoTransactionPerMois, type = c("p","l"), lwd = 2,ylab="Temperature en °C")
-  obj2 <- xyplot(nbTransaction ~ Month, meteoTransactionPerMois, type = c("p","l"), lwd = 2,ylab="Nombre de transactions")
-  visu <- update(doubleYScale(obj1, obj2, add.ylab2=TRUE, text = c("Température", "Nombre de transactions")),
-         xlab="Mois",
-         par.settings = simpleTheme(col = c('blue','red'), lty = 1:2))
-  return(visu)
-  })
-  
-  output$corrmeteotrans <- renderPlot({
-    visu <- corrplot(cor(meteoTransactionsMois[,1:9],use="pairwise.complete.obs"),method="circle")
-  })
-  output$corrheatmap <- renderPlot({
-    heatmap(abs(cor(meteoTransactionsMois[1:23,1:9])),symm=T)
-  })
-  output$pairsmeteo1 <- renderPlot({
-    pairs(nbTransaction~temp+tempMin+tempMax+pointRosee,y)
-  })
-  output$pairsmeteo2 <- renderPlot({
-    pairs(nbTransaction~visu+humidite+pluie1+pluie3,y)
-  })
-  output$focaltrans <- renderPlot({
-    # ACP focalisée
-    # expliquer : le nombre de transactions / avec les variables explicatives
-    expliquer <- "Consommationkwh"
-    explicatives <- c("temp","humidite","pointRosee","visu","pluie3","nbTransaction","DureeChargemin")
-    visu <- fpca(y=expliquer,x=explicatives,data=meteoTransactionsMois, partial="Yes")
-      return(visu)
-  })
-  output$focalconso <- renderPlot({
-    # ACP focalisée
-    # expliquer : le nombre de transactions / avec les variables explicatives
-    expliquer <- "nbTransaction"
-    explicatives <- c("temp","humidite","pointRosee","visu","pluie3","Consommationkwh","DureeChargemin")
-    visu <- fpca(y=expliquer,x=explicatives,data=meteoTransactionsMois, partial="Yes")
-    return(visu)
-  })
+
   ###########################################################################################
-  ## VISU FACET VILLES / BORNES SPRINT1 20/12/2018
+  ## VISU FACET VILLES / BORNES => histofacet
   output$villesbornes <- renderText({
     "Les villes qui ont plusieurs bornes sont les suivantes : 
     Embrun, Tallard, Guillestre, Laragne-Monteglin, Savines-Le-Lac, L'Argentiere-La-Bessee,
@@ -707,7 +568,7 @@ server <- function(input, output) {
   })
   
   ###########################################################################################
-  ## VISU
+  ## VISU historique => histo
   ###########################################################################################
   unitevarhisto <- eventReactive(
     {
